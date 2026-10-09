@@ -1,0 +1,49 @@
+$ python3 test_end_to_end.py
+test_bad_envelopes_abort_immediately (__main__.EndToEnd.test_bad_envelopes_abort_immediately) ... ok
+test_cli_bad_arguments_do_not_connect (__main__.EndToEnd.test_cli_bad_arguments_do_not_connect) ... ok
+test_cli_download_to_disk (__main__.EndToEnd.test_cli_download_to_disk) ... ok
+test_cli_head_and_http_error_exit (__main__.EndToEnd.test_cli_head_and_http_error_exit) ... ok
+test_cli_two_files_single_connection (__main__.EndToEnd.test_cli_two_files_single_connection) ... ok
+test_cli_unknown_frames_both_directions (__main__.EndToEnd.test_cli_unknown_frames_both_directions) ... ok
+test_client_rejects_bad_response (__main__.EndToEnd.test_client_rejects_bad_response) ... ok
+test_concurrent_clients (__main__.EndToEnd.test_concurrent_clients) ... ok
+test_fragmentation_pipeline_and_unknown_skip (__main__.EndToEnd.test_fragmentation_pipeline_and_unknown_skip) ... ok
+test_header_codec_random_input (__main__.EndToEnd.test_header_codec_random_input) ... ok
+test_idle_and_partial_eof_cleanup (__main__.EndToEnd.test_idle_and_partial_eof_cleanup) ... ok
+test_independent_golden_request (__main__.EndToEnd.test_independent_golden_request) ... ok
+test_malformed_requests_keep_connection (__main__.EndToEnd.test_malformed_requests_keep_connection) ... ok
+test_recoverable_errors_and_url_paths (__main__.EndToEnd.test_recoverable_errors_and_url_paths) ... ok
+test_reused_id_aborts (__main__.EndToEnd.test_reused_id_aborts) ... ok
+test_slow_reader_does_not_block_second_client (__main__.EndToEnd.test_slow_reader_does_not_block_second_client) ... ok
+test_streaming_output_is_bounded (__main__.EndToEnd.test_streaming_output_is_bounded) ... ok
+test_symlink_root_confinement (__main__.EndToEnd.test_symlink_root_confinement) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 1.327s
+
+OK
+
+$ python3 test_end_to_end.py --tcp
+test_bad_envelopes_abort_immediately (__main__.EndToEnd.test_bad_envelopes_abort_immediately) ... ok
+test_cli_bad_arguments_do_not_connect (__main__.EndToEnd.test_cli_bad_arguments_do_not_connect) ... ok
+test_cli_download_to_disk (__main__.EndToEnd.test_cli_download_to_disk) ... ok
+test_cli_head_and_http_error_exit (__main__.EndToEnd.test_cli_head_and_http_error_exit) ... ok
+test_cli_two_files_single_connection (__main__.EndToEnd.test_cli_two_files_single_connection) ... ok
+test_cli_unknown_frames_both_directions (__main__.EndToEnd.test_cli_unknown_frames_both_directions) ... ok
+test_client_rejects_bad_response (__main__.EndToEnd.test_client_rejects_bad_response) ... ok
+test_concurrent_clients (__main__.EndToEnd.test_concurrent_clients) ... ok
+test_fragmentation_pipeline_and_unknown_skip (__main__.EndToEnd.test_fragmentation_pipeline_and_unknown_skip) ... ok
+test_header_codec_random_input (__main__.EndToEnd.test_header_codec_random_input) ... ok
+test_idle_and_partial_eof_cleanup (__main__.EndToEnd.test_idle_and_partial_eof_cleanup) ... ok
+test_independent_golden_request (__main__.EndToEnd.test_independent_golden_request) ... ok
+test_malformed_requests_keep_connection (__main__.EndToEnd.test_malformed_requests_keep_connection) ... ok
+test_recoverable_errors_and_url_paths (__main__.EndToEnd.test_recoverable_errors_and_url_paths) ... ok
+test_reused_id_aborts (__main__.EndToEnd.test_reused_id_aborts) ... ok
+test_slow_reader_does_not_block_second_client (__main__.EndToEnd.test_slow_reader_does_not_block_second_client) ... ok
+test_streaming_output_is_bounded (__main__.EndToEnd.test_streaming_output_is_bounded) ... ok
+test_symlink_root_confinement (__main__.EndToEnd.test_symlink_root_confinement) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 1.287s
+
+OK

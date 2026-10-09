@@ -1,0 +1,130 @@
+# N1 File Exchange - protocol specification
+
+PAGE 1: ENVELOPES AND HEADER RECORDS
+
+N1 carries HTTP-like file requests over a persistent TCP connection.
+No connection preface is sent. Every frame starts with a version signature.
+All multi-byte integers are unsigned, network byte order (big-endian).
+MUST denotes a requirement. This is not HTTP/2 or RFC 9292 Binary HTTP.
+
+ENVELOPE: 12 bytes, then exactly payload_length bytes.
+  Offsets  Width    Meaning
+  0..1     16 bits  Signature: 0x4e31, ASCII "N1"
+  2         8 bits  Packet type
+  3         8 bits  Flags; FINISHED = 0x01
+  4..7     32 bits  Request identifier
+  8..11    32 bits  Payload length, excluding the envelope
+
+A receiver MUST reject a bad signature or length above 262144 bytes before
+waiting for the payload. Unknown types use this same size policy.
+
+WHY THESE WIDTHS: HTTP/2 packs 24/8/8/31 bits into 9 bytes. The stream
+id is 31 bits because one bit is reserved; odd/even ids split client and
+server streams. The length is 24 bits because frames stay small (16 KiB
+by default, larger only by SETTINGS) so multiplexed streams interleave.
+N1 does not multiplex, so it spends bytes differently. Two signature
+bytes identify every frame and mark the version. Byte-sized type and
+flags need no masking. The 32-bit id is not for concurrency: it pairs
+each pipelined response with its request, so a desynchronised peer is
+caught instead of misfiling bytes. The 32-bit length avoids bit packing;
+policy caps it at 256 KiB to bound allocations. Cost: 3 bytes more than
+HTTP/2, about 0.146% of an 8192-byte chunk.
+
+PACKET TYPES:
+  0x10 REQUEST   Header records; client to server; FINISHED required.
+  0x20 RESPONSE  Header records; server to client; status and metadata.
+  0x21 CONTENT   File/error body bytes; server to client.
+  0x7e ABORT     UTF-8 diagnostic <= 512 bytes; id 0; FINISHED; then close.
+
+A receiver MUST skip unknown types by discarding their entire declared
+payload. It MUST continue without changing request/response state, even
+if unknown frames set FINISHED or name an unrelated id. Undefined flag
+bits MUST be sent as zero on known types and ignored on receipt.
+
+HEADER BLOCK:
+  u16 record_count (0..64), followed by exactly record_count records.
+  Indexed record: u8 name_code + u16 value_length + value_bytes.
+  Literal record: 0x00 + u16 name_length + ASCII name_bytes
+                      + u16 value_length + value_bytes.
+
+TEN STATIC NAME CODES:
+  01 host           02 user-agent      03 accept       04 :method
+  05 :path          06 :status         07 content-type
+  08 content-length 09 server          0a last-modified
+
+Names outside this table use the literal form, e.g. date and allow. date
+is literal on purpose: every response exercises the path a new name uses.
+Literal names are 1..255 bytes, lowercase ASCII letters, digits, or any of
+!#$%&'*+-.^_`|~. A leading colon marks a pseudo-field. Values are opaque
+bytes, 0..65535 bytes each. Order does not matter. Names MUST be unique.
+Unassigned codes, invalid names, duplicates, truncated records, extra
+trailing bytes and counts over 64 are malformed blocks. This borrows
+static name indexing and length-prefixed literals from HPACK; it has no
+Huffman coding, dynamic table or full HPACK compatibility.
+
+---PAGE---
+
+PAGE 2: EXCHANGES, FILES AND ERROR RECOVERY
+
+The client sends increasing, nonzero u32 request ids: normally 1, 2, 3...
+Both odd and even ids are valid. Responses echo the request id. Id zero
+is reserved for ABORT. One invocation MUST use one connection; no retry
+or reconnect is permitted. Id exhaustion ends the invocation. The server
+answers requests in arrival order; pipelining is allowed, multiplexing is
+not. No request body or trailer exists in this version.
+
+REQUEST must contain exactly :method and :path as its pseudo-fields.
+:method is ASCII; :path is UTF-8. host is required and must contain at
+least one non-whitespace byte.
+Regular fields may occur in any order. GET retrieves a file. HEAD returns
+the same response metadata and no CONTENT, including error responses.
+Other methods receive status 405 and the literal header allow: GET, HEAD.
+
+A response starts with one RESPONSE packet. Its only pseudo-field is
+:status: exactly three ASCII digits, 200..599. No 1xx response is defined.
+If FINISHED is set, the response has no body. Otherwise, zero or more
+CONTENT packets follow; the final CONTENT sets FINISHED. The reference
+server uses 8192-byte chunks and a separate empty final CONTENT. A peer
+may instead set FINISHED on its last nonempty chunk.
+
+content-length describes the representation; it does not delimit frames.
+The client MUST use payload lengths and FINISHED for framing, not EOF.
+Unexpected known packet types, mismatched ids, repeated response headers
+and invalid response metadata cause a client error and connection close.
+Unknown packet types remain skippable between any two known packets.
+
+DOCUMENT ROOT:
+- :path must begin with /. Remove query and fragment before percent-decoding
+  UTF-8 once. Reject NUL and any '..' segment. Ignore empty and '.' segments.
+- Resolve the file and symlinks. Directories use index.html; check that
+  resolved index against the root as well. Escape attempts receive 400.
+- Missing/nonregular files receive 404; permission failures 403; other file
+  failures 500. Regular files receive 200, content type, length, server,
+  last-modified and date. Body bytes are unchanged. content-length is ASCII
+  decimal; date and last-modified use IMF-fixdate (RFC 9110), e.g.
+  Thu, 08 Oct 2026 15:13:08 GMT.
+- The document root is trusted and must stay stable during transfers.
+  The server reads files in bounded chunks; the client streams to its sink.
+
+ERROR BOUNDARIES:
+A complete REQUEST with a valid new id but malformed fields or missing
+FINISHED receives 400. Its payload is already consumed, so the connection
+stays open. 403/404/405/500 responses also leave it open. A decodable HEAD
+request receives no error body. Bad signature, excessive length, zero or
+non-increasing ids, and unexpected known client packets cause ABORT then
+close: a bad envelope leaves no trustworthy boundary for the next frame,
+and an id out of order means the peers no longer agree on the exchange.
+EOF or inactivity may close without ABORT. Socket/read errors and a file
+changing mid-transfer terminate the affected connection.
+
+EXAMPLE, all on one connection:
+  REQUEST  id=1 FINISHED  host=localhost:9000, :method=GET, :path=/
+  RESPONSE id=1 flags=0   :status=200, content-type=text/html, ...
+  CONTENT  id=1 flags=0   [file bytes]
+  CONTENT  id=1 FINISHED  [empty]
+  REQUEST  id=2 FINISHED  host=localhost:9000, :method=HEAD, :path=/
+  RESPONSE id=2 FINISHED :status=200, content-length=..., ...
+
+New optional types and literal names extend N1. Changing widths, static
+codes or required semantics requires a new version signature. There is no
+TLS, flow control, authentication or server-initiated request in N1.
